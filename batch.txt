@@ -1,0 +1,8 @@
+halve cirkel geel#
+#comments comments comments
+rechthoek groen
+#
+#
+#
+driehoek roze
+cirkel paars
