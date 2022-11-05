@@ -15,8 +15,9 @@ ShapeAndColorDetection::ShapeAndColorDetection() :
 				Scalar(6.0, 125.5, 115.35)), highOrange(
 				Scalar(19.99, 255.0, 255.0)), lowYellow(
 				Scalar(19.0, 123.75, 135.25)), highYellow(
-				Scalar(29.9, 255.0, 255.0)), vid(0), videoEnabled(false), batchEnabled(false), clockTicks(
-				0), objectHasBeenFound(false)
+				Scalar(29.9, 255.0, 255.0)), specificColor("all"), specificShape(
+				"all"), vid(0), videoEnabled(false), batchEnabled(false), clockTicks(
+				0), objectHasBeenFound(false), skip(false)
 {
 }
 
@@ -24,8 +25,7 @@ ShapeAndColorDetection::~ShapeAndColorDetection()
 {
 }
 
-
-void ShapeAndColorDetection::setLabel(cv::Mat &im, const std::string label,
+void ShapeAndColorDetection::setLabel(cv::Mat &im, const std::string& label,
 		std::vector<cv::Point> &contour)
 {
 	int fontface = cv::FONT_HERSHEY_SIMPLEX;
@@ -76,32 +76,36 @@ void ShapeAndColorDetection::convertimage()
 	dst = src.clone();
 }
 
-double ShapeAndColorDetection::angle(cv::Point pt1, cv::Point pt2,
-		cv::Point pt0)
-{
-	double dx1 = pt1.x - pt0.x;
-	double dy1 = pt1.y - pt0.y;
-	double dx2 = pt2.x - pt0.x;
-	double dy2 = pt2.y - pt0.y;
-	return (dx1 * dx2 + dy1 * dy2)
-			/ sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10);
-}
+// double ShapeAndColorDetection::angle(cv::Point pt1, cv::Point pt2,
+//		cv::Point pt0)
+//{
+//	double dx1 = pt1.x - pt0.x;
+//	double dy1 = pt1.y - pt0.y;
+//	double dx2 = pt2.x - pt0.x;
+//	double dy2 = pt2.y - pt0.y;
+//	return (dx1 * dx2 + dy1 * dy2)
+//			/ sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10);
+//}
 
 void ShapeAndColorDetection::showImage()
 {
 	if (videoEnabled)
 	{
 		cv::imshow("mask", mask);
+		objectFound();
 		cv::imshow("dst", dst);
 		waitKey(0);
 	}
-	else if(batchEnabled)
+	else if (batchEnabled)
 	{
 //		cv::imshow("src", src);
 //		cv::imshow("mask", mask);
 //		cv::imshow("dst", dst);
 //		waitKey(0);
-	} else {
+	}
+	else
+	{
+		objectFound();
 		cv::imshow("src", src);
 		cv::imshow("mask", mask);
 		cv::imshow("dst", dst);
@@ -155,10 +159,39 @@ void ShapeAndColorDetection::labelPolygon(std::vector<cv::Point> &approxInput,
 			// Use the degrees obtained above and the number of vertices
 			// to determine the shape of the contour
 			if (vtc == 4 && mincos >= -0.3 && maxcos <= 0.5
-					&& (shape == "rechthoek" || shape == "all"))
+					&& (shape == "rechthoek" || shape == "vierkant"
+							|| shape == "all"))
 			{
-				setLabel(dst, colortype + " RECHTHOEK", contoursInput[i]);
-				drawContours(dst, contoursInput, i, Scalar(255, 0, 0), 3, 8);
+
+				Rect vierkant = boundingRect(contoursInput[i]);
+				float diff = ((float) vierkant.width / (float) vierkant.height);
+
+				if ((diff >= 0.8 && diff <= 1.2)
+						&& (shape == "vierkant" || shape == "rechthoek"
+								|| shape == "all"))
+				{
+					if (shape == "vierkant" || shape == "all")
+					{
+						setLabel(dst, colortype + " VIERKANT",
+								contoursInput[i]);
+						drawContours(dst, contoursInput, i, Scalar(255, 0, 0),
+								3, 8);
+					}
+					else
+					{
+						setLabel(dst, colortype + " RECHTHOEK",
+								contoursInput[i]);
+						drawContours(dst, contoursInput, i, Scalar(255, 0, 0),
+								3, 8);
+					}
+				}
+				else if (!(diff >= 0.8 && diff <= 1.2)
+						&& (shape == "rechthoek" || shape == "all"))
+				{
+					setLabel(dst, colortype + " RECHTHOEK", contoursInput[i]);
+					drawContours(dst, contoursInput, i, Scalar(255, 0, 0), 3,
+							8);
+				}
 			}
 			else if (vtc > 4 && (shape == "halve cirkel" || shape == "all"))
 			{
@@ -181,10 +214,10 @@ void ShapeAndColorDetection::parse(int argc, char **argv)
 {
 
 	//cmdline parameter keys
-	cv::String keys =  // "{@image |video| input image path}" input image is the first argument (positional)
-					"{@shape  |all| color to be found}"// optional find specific color
-					"{@shape2 |   | color to be found}"// optional find specific color
-					"{@color  |all| shape to be found}"// optional find specific shape
+	cv::String keys = // "{@image |video| input image path}" input image is the first argument (positional)
+			"{@shape  |all| shape to be found}"// optional find specific color
+					"{@shape2 |all| shape to be found}"// optional find specific color
+					"{@color  |all| color to be found}"// optional find specific shape
 	;
 
 	CommandLineParser parser(argc, argv, keys);
@@ -199,95 +232,64 @@ void ShapeAndColorDetection::parse(int argc, char **argv)
 		color = parser.get<cv::String>("@color");
 	}
 
-	if(color.find("#"))
-		{
-		color = color.substr(0,color.find("#"));
+	if (color.find("#"))
+	{
+		color = color.substr(0, color.find("#"));
 
-		}
+	}
 
-
-	//video
-//	if (parser.get<String>("@image") == "video" || )
-//	{
-//
-//	}
-	if (shape.substr(
-			shape.length() - 4) == ".txt")
+	//batch
+	if (shape != "all" && (shape.substr(shape.length() - 4) == ".txt"))
 	{
 		cout << "batch input selected." << endl;
 		vid.read(src);
 		videoEnabled = true;
-		processBatchFile(parser.get<String>("@shape"));
+		processBatchFile(shape);
 		exit(0);
 	}
-//	// no source given
-//	else if (parser.get<String>("@image").substr(
-//			parser.get<String>("@image").length() - 4) == ".png")
-//	{
-//		//image parser
-//
-//		src = imread(samples::findFile(parser.get<String>("@image")),
-//				IMREAD_COLOR);
-//		if (src.empty())
-//		{
-//			cerr << "Could not open or find the image!\n" << endl;
-//			cerr << "Usage: " << argv[0] << " <Input image>" << endl;
-//			exit(0);
-//
-//		}
-//		std::cout << "image input selected." << endl;
-//	}
 	else
 	{
 		if (!vid.isOpened())
-				{
-					std::cerr << "camera not connected" << std::endl;
-					exit(0);
-				}
-				vid.read(src);
-				videoEnabled = true;
-				std::cout << "video input selected." << std::endl;
+		{
+			std::cerr << "camera not connected" << std::endl;
+			exit(0);
+		}
+		vid.read(src);
+		videoEnabled = true;
+		std::cout << "video input selected." << std::endl;
 	}
 
+	//check for halve cirkel parameter
+	if (shape == "halve")
+	{
+		shape = shape + " " + shape2;
+	}
 
-
-
-//	String shape = parser.get<cv::String>("@shape");
-	if (shape  == "halve")
-				{
-					shape = shape + " " + shape2;
-				}
-
-
+	//setter of shape
 	if (!setShape(shape))
 	{
-		cout << "unsupported shape: " << parser.get<cv::String>("@shape")
-				<< endl << "terminating program" << endl;
+		cout << "unsupported shape: '" << shape << "'" << endl
+				<< "terminating program" << endl;
 		exit(0);
 
 	}
 
+	//setter of color
 	if (!setColor(color))
 	{
-		cout << "unsupported color: " << parser.get<cv::String>("@color")
-				<< endl << "terminating program" << endl;
+		cout << "unsupported color: '" << color << "'" << endl
+				<< "terminating program" << endl;
 		exit(0);
 	}
-
 }
 
 void ShapeAndColorDetection::video()
 {
-//	convertimage();
 	if (vid.read(src))
 	{
 		convertimage();
 		findColorsAndShapes();
 		showImage();
-//		if (waitKey(1000 / 20) >= 0)
-//		{
-//			break;
-//		}
 		if (!vid.isOpened())
 		{
 			std::cout << "camera disconnected" << std::endl;
@@ -309,7 +311,7 @@ void ShapeAndColorDetection::detect()
 		findColorsAndShapes();
 		showImage();
 	}
-	objectFound();
+
 }
 
 void ShapeAndColorDetection::labelCircle(std::vector<cv::Point> &approxInput,
@@ -417,10 +419,10 @@ void ShapeAndColorDetection::findPinkShapes()
 bool ShapeAndColorDetection::setShape(String shape)
 {
 	vector<string> shapes
-	{ "driehoek", "rechthoek", "cirkel", "halve cirkel", "all" };
+	{ "driehoek", "rechthoek", "cirkel", "halve cirkel", "vierkant", "all" };
 	for (uint16_t i = 0; i < shapes.size(); ++i)
 	{
-		if (shape == shapes[i])
+		if (shape == shapes.at(i))
 		{
 			specificShape = shape;
 			return true;
@@ -431,30 +433,29 @@ bool ShapeAndColorDetection::setShape(String shape)
 
 bool ShapeAndColorDetection::setColor(String color)
 {
-	string setcolor = color;
+	//string setcolor = color;
 	vector<string> colors
 	{ "roze", "oranje", "groen", "geel", "all" };
 
+	if (color.find("#"))
+	{
+		color = color.substr(0, color.find("#"));
 
-	if(setcolor.find("#"))
-		{
-		setcolor = setcolor.substr(0,setcolor.find("#"));
-
-		}
+	}
 
 	for (uint16_t i = 0; i < colors.size(); ++i)
 	{
-		if (setcolor == colors[i])
+		if (color == colors.at(i))
 		{
-			specificColor = setcolor;
+			specificColor = color;
 			return true;
 		}
 	}
 	return false;
 }
 
-void ShapeAndColorDetection::logObject(String object, string surface,
-		string xCord, string yCord)
+void ShapeAndColorDetection::logObject(const String& object,const string& surface,
+		const string& xCord, const string& yCord)
 {
 	cout << "! Found " << object << " at cords: X:" << xCord << " Y:" << yCord
 			<< " with surface area of " << surface << " in " << getClockTicks()
@@ -470,11 +471,11 @@ long ShapeAndColorDetection::getClockTicks()
 
 }
 
-void ShapeAndColorDetection::setSrc(string source)
-{
-	String path = samples::findFile(source);
-	src = imread(path, IMREAD_COLOR);
-}
+//void ShapeAndColorDetection::setSrc(string source)
+//{
+//	String path = samples::findFile(source);
+//	src = imread(path, IMREAD_COLOR);
+//}
 
 void ShapeAndColorDetection::processBatchFile(string filename)
 {
@@ -489,8 +490,6 @@ void ShapeAndColorDetection::processBatchFile(string filename)
 		string color;
 		string shape;
 
-
-
 		while (!ifs.eof())
 		{
 			getline(ifs, parameter, '\n');
@@ -501,7 +500,6 @@ void ShapeAndColorDetection::processBatchFile(string filename)
 				//getline(sstream, source, ' ');
 				getline(sstream, shape, ' ');
 
-
 				if (shape == "halve")
 				{
 					string tmp;
@@ -509,34 +507,35 @@ void ShapeAndColorDetection::processBatchFile(string filename)
 					shape = shape + " " + tmp;
 				}
 
-
 				getline(sstream, color, ' ');
-				if(color.find("#"))
-					{
-					color = color.substr(0,color.find("#"));
+				if (color.find("#"))
+				{
+					color = color.substr(0, color.find("#"));
 
-					}
-				cout << color << " : " << shape << endl;
+				}
+				cout << shape << " : " << color << endl;
 
 				//setSrc(source);
 
-
 				if (!setShape(shape))
 				{
-					cout << "unsupported shape: " << shape << endl << "terminating program"
-									<< endl;
-					exit(0);
+					cout << "unsupported shape: " << shape << endl;
+							//<< "terminating program" << endl;
+					skip = true;
 
 				}
 
 				if (!setColor(color))
 				{
-					cout << "unsupported color: " << color << endl << "terminating program"
-									<< endl;
-					exit(0);
+					cout << "unsupported color: " << color << endl;
+						//	<< "terminating program" << endl;
+					skip = true;
 				}
-
+				if(!skip)
+				{
 				detect();
+				}
+				skip = false;
 			}
 
 		}
@@ -551,24 +550,24 @@ void ShapeAndColorDetection::objectFound()
 	if (!objectHasBeenFound)
 	{
 		cout
-				<< "No object found of the specified shape and color in the given image"
+				<< "No object found of the specified shape and color in the given image. Elapsed time: "<< getClockTicks() <<" clock ticks."
 				<< endl;
 		objectHasBeenFound = false;
 	}
 	return;
 }
 
-int ShapeAndColorDetection::getColorIndex(string color)
-{
-	vector<string> colors
-	{ "roze", "oranje", "groen", "geel", "all" };
-
-	for (uint64_t i = 0; i < colors.size(); ++i)
-	{
-		if (color == colors[i])
-		{
-			return i;
-		}
-	}
-	return 99;
-}
+// int ShapeAndColorDetection::getColorIndex(const string& color)
+//{
+//	vector<string> colors
+//	{ "roze", "oranje", "groen", "geel", "all" };
+//
+//	for (uint64_t i = 0; i < colors.size(); ++i)
+//	{
+//		if (color == colors[i])
+//		{
+//			return i;
+//		}
+//	}
+//	return 99;
+//}

@@ -21,6 +21,48 @@ using namespace std;
 #ifndef SHAPEANDCOLORDETECTION_H_
 #define SHAPEANDCOLORDETECTION_H_
 
+/**
+ * function to return the index in a vector of colors as to be used in the state machine
+ * for performance reasons this function is declared as statis but it can also be member function
+ * the compiler may warn you that this function is not used but it is used by other functions
+ * @param color specifeis the color
+ * @see findColorsAndShapes() function
+ */
+static int getColorIndex(const string& color)
+{
+	vector<string> colors
+	{ "roze", "oranje", "groen", "geel", "all" };
+
+	for (uint64_t i = 0; i < colors.size(); ++i)
+	{
+		if (color == colors[i])
+		{
+			return i;
+		}
+	}
+	return 99;
+}
+
+/**
+ * Function to get the angle in degrees of three points
+ * for performance reasons this function is declared as statis but it can also be member function
+ * the compiler may warn you that this function is not used but it is used by other functions
+ * @param pt1 specifies point 1
+ * @param pt2 specifies point 2
+ * @param pt0 specifies point 0
+ * @return a double of the angle in degrees
+ */
+static double angle(cv::Point pt1, cv::Point pt2, cv::Point pt0)
+{
+	double dx1 = pt1.x - pt0.x;
+	double dy1 = pt1.y - pt0.y;
+	double dx2 = pt2.x - pt0.x;
+	double dy2 = pt2.y - pt0.y;
+	return (dx1 * dx2 + dy1 * dy2)
+			/ sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10);
+}
+
+
 class ShapeAndColorDetection
 {
 public:
@@ -114,17 +156,9 @@ private:
 	 * @param label specifies the string on the label
 	 * @param &countour specifies a vector of points of the shape to determine middle point
 	 */
-	void setLabel(cv::Mat &im, const std::string label,
+	void setLabel(cv::Mat &im, const std::string& label,
 			std::vector<cv::Point> &contour);
 
-	/**
-	 * Function to get the angle in degrees of three points
-	 * @param pt1 specifies point 1
-	 * @param pt2 specifies point 2
-	 * @param pt0 specifies point 0
-	 * @return a double of the angle in degrees
-	 */
-	double angle(cv::Point pt1, cv::Point pt2, cv::Point pt0);
 
 	/**
 	 * Function to try en determine if the given shape of lopygon
@@ -172,7 +206,7 @@ private:
 	 * @param ycords specifeis the y coordinates of the shape
 	 *
 	 */
-	void logObject(String object, string surface, string xCord, string yCord);
+	void logObject(const String& object, const string& surface, const string& xCord, const string& yCord);
 
 	/**
 	 * function to specifie amout of clock ticks sinds last call. first 0 set in constructor
@@ -185,7 +219,7 @@ private:
 	 * @param gives the path of the source image
 	 * @see src var
 	 */
-	void setSrc(string source);
+//	void setSrc(string source);
 
 	/**
 	 * Function to process a batch of images and arguments at ounce
@@ -199,12 +233,7 @@ private:
 	 */
 	void objectFound();
 
-	/**
-	 * function to return the index in a vector of colors as to be used in the state machine
-	 * @param color specifeis the color
-	 * @see findColorsAndShapes() function
-	 */
-	int getColorIndex(string color);
+
 
 	//mat variables
 
@@ -318,6 +347,7 @@ private:
 	bool objectHasBeenFound;
 	//bool readyForNextFrame;
 
+	bool skip;
 	//vectors
 
 	/**
