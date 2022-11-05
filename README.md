@@ -17,29 +17,29 @@ afhankelijkheden:
 
 Instructies:
 
-Stap 1:
-	Download de code uit de Main als .zip op : https://bitbucket.aimsites.nl/projects/WORR_CV_SHG/repos/opencv-bp/browse
+	Stap 1:
+		Download de code uit de Main als .zip op : https://bitbucket.aimsites.nl/projects/WORR_CV_SHG/repos/opencv-bp/browse
+		
+	Stap 2:
+		Maak een nieuwe map aan in je eclipse workspace en plaats de inhoud van de .zip in de map.
 
-Stap 2:
-	Maak een nieuwe map aan in je eclipse workspace en plaats de inhoud van de .zip in de map.
+	Stap 3:
+		Start eclipse ide for embedded c/c++
 
-Stap 3:
-	Start eclipse ide for embedded c/c++
+	Stap 4: 
+		Ga naar 'File' -> 'New' -> 'CMake Project with Existing code' . Er zal nu een nieuw venster openen.
 
-Stap 4: 
-	Ga naar 'File' -> 'New' -> 'CMake Project with Existing code' . Er zal nu een nieuw venster openen.
+	Stap 5:
+		Zet 'existing code location' naar de locatie van de uitgepakte .zip en klik op 'Finish'.
 
-Stap 5:
-	Zet 'existing code location' naar de locatie van de uitgepakte .zip en klik op 'Finish'.
-
-Stap 6:
-	Open een terminal in de Root van het project
+	Stap 6:
+		Open een terminal in de Root van het project
 	
-Stap: 7:
-	voer het commando "cmake ./" uit.
+	Stap: 7:
+		voer het commando "cmake ./" uit.
 	
-Stap 8:
-	voer het command "make" uit.
+	Stap 8:
+		voer het command "make" uit.
 
 
 
